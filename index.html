@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b7a43">
+  <title>QuickKart | Groceries delivered</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --green: #0b7a43;
+      --light: #f3faf5;
+      --ink: #17251c;
+      --muted: #647268;
+      --border: #e1e9e3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: Arial, sans-serif;
+      background: #fff; color: var(--ink);
+    }
+    header {
+      background: var(--green); color: white;
+      padding: 17px max(16px, calc((100% - 1100px)/2));
+      display: flex; gap: 14px; align-items: center;
+      justify-content: space-between; flex-wrap: wrap;
+    }
+    .brand { font-size: 25px; font-weight: 800; }
+    .brand span { color: #d7ff75; }
+    .delivery { font-size: 12px; margin-top: 4px; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .header-button {
+      background: white; color: var(--green); border: 0;
+      border-radius: 12px; padding: 11px 14px; font-weight: 700;
+    }
+    main { max-width: 1100px; margin: auto; padding: 20px 16px 50px; }
+    .hero {
+      background: linear-gradient(120deg, #e1f7df, #f7fbe7);
+      border-radius: 22px; padding: 26px 22px; margin-bottom: 22px;
+    }
+    .hero h1 { font-size: clamp(27px, 5vw, 42px); margin: 0 0 10px; }
+    .hero p { color: #405846; line-height: 1.5; margin: 0; }
+    .search {
+      width: 100%; padding: 14px; border: 1px solid var(--border);
+      border-radius: 12px; margin: 4px 0 17px;
+    }
+    .categories { display: flex; gap: 9px; overflow-x: auto; padding: 2px 0 16px; }
+    .category {
+      white-space: nowrap; border: 1px solid var(--border);
+      background: white; border-radius: 22px; padding: 10px 15px;
+    }
+    .category.active { background: var(--green); color: white; border-color: var(--green); }
+    .section-title { display: flex; justify-content: space-between; align-items: center; }
+    .section-title h2 { font-size: 22px; }
+    #products { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+    .product {
+      border: 1px solid var(--border); border-radius: 15px;
+      padding: 13px; min-width: 0;
+    }
+    .product-art {
+      height: 95px; border-radius: 11px; background: var(--light);
+      display: grid; place-items: center; font-size: 46px; margin-bottom: 10px;
+    }
+    .product h3 { font-size: 15px; margin: 5px 0; overflow-wrap: anywhere; }
+    .product p { color: var(--muted); font-size: 12px; min-height: 15px; }
+    .price-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .price { font-weight: 800; }
+    .add {
+      background: white; color: var(--green); border: 1px solid var(--green);
+      border-radius: 9px; padding: 8px 13px; font-weight: 800;
+    }
+    .panel {
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 17px; margin-top: 24px;
+    }
+    .panel h2 { margin-top: 0; }
+    .field { display: block; width: 100%; margin: 9px 0; padding: 12px;
+      border: 1px solid var(--border); border-radius: 10px; }
+    .primary {
+      background: var(--green); color: white; border: 0;
+      border-radius: 10px; padding: 12px 16px; font-weight: 700;
+    }
+    .secondary { background: #eef5ef; border: 0; border-radius: 10px; padding: 11px; }
+    .cart-line { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .cart-controls { display: flex; align-items: center; gap: 8px; }
+    .cart-controls button { border: 1px solid var(--border); background: white; border-radius: 7px; padding: 4px 9px; }
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .notice { background: #fff7df; border-radius: 10px; padding: 12px; line-height: 1.5; font-size: 13px; }
+    .status { margin: 12px 0; font-size: 14px; overflow-wrap: anywhere; }
+    footer { text-align: center; padding: 25px 15px; background: var(--light); color: var(--muted); font-size: 13px; }
+    @media (min-width: 650px) {
+      #products { grid-template-columns: repeat(4,minmax(0,1fr)); }
+      .product-art { height: 120px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="brand">Quick<span>Kart</span></div>
+    <div class="delivery">Groceries made easy · Srikakulam</div>
+  </div>
+  <button class="header-button" onclick="document.getElementById('cartPanel').scrollIntoView({behavior:'smooth'})">
+    🛒 Cart (<span id="cartCount">0</span>)
+  </button>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Everyday groceries,<br>made simple.</h1>
+    <p>Explore daily essentials and build your shopping basket.</p>
+  </section>
+
+  <input class="search" id="search" placeholder="🔎 Search milk, rice, fruits..." aria-label="Search products">
+
+  <div class="categories" id="categories">
+    <button class="category active" data-category="All">All</button>
+    <button class="category" data-category="Fruits">🍎 Fruits</button>
+    <button class="category" data-category="Vegetables">🥦 Vegetables</button>
+    <button class="category" data-category="Dairy">🥛 Dairy</button>
+    <button class="category" data-category="Bakery">🍞 Bakery</button>
+    <button class="category" data-category="Staples">🌾 Staples</button>
+    <button class="category" data-category="Snacks">🍪 Snacks</button>
+    <button class="category" data-category="Beverages">🥤 Beverages</button>
+  </div>
+
+  <div class="section-title">
+    <h2>Popular products</h2>
+  </div>
+  <p class="muted" id="productStatus">Connecting to QuickKart catalogue…</p>
+  <section id="products"></section>
+
+  <section class="panel" id="cartPanel">
+    <h2>🛒 Your cart</h2>
+    <div id="cartItems"><p class="muted">Your cart is empty. Add a product to get started.</p></div>
+    <div class="cart-line">
+      <strong>Estimated total</strong>
+      <strong id="cartTotal">₹0.00</strong>
+    </div>
+    <p class="muted">Delivery fees and final prices must be confirmed before checkout.</p>
+  </section>
+
+  <section class="panel" id="accountPanel">
+    <h2>👤 Your account</h2>
+    <p class="muted">Create an account or sign in to prepare for order tracking.</p>
+    <input class="field" id="email" type="email" placeholder="Email address" autocomplete="email">
+    <input class="field" id="password" type="password" placeholder="Password (at least 6 characters)" autocomplete="current-password">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="primary" id="signIn">Sign in</button>
+      <button class="secondary" id="signUp">Create account</button>
+      <button class="secondary" id="signOut" hidden>Sign out</button>
+    </div>
+    <p class="status" id="authStatus" role="status">Not signed in.</p>
+  </section>
+
+  <section class="panel" id="checkoutPanel">
+    <h2>📍 Delivery and checkout</h2>
+    <input class="field" id="customerName" placeholder="Full name" autocomplete="name">
+    <input class="field" id="phone" type="tel" placeholder="Mobile number" autocomplete="tel">
+    <textarea class="field" id="address" rows="3" placeholder="House number, street, area, Srikakulam"></textarea>
+    <label class="muted">Payment method</label>
+    <input class="field" value="Cash on Delivery (COD)" readonly>
+    <div class="notice">
+      <strong>Checkout setup in progress.</strong><br>
+      This starter does not submit orders yet. Before taking real orders, QuickKart needs a secure server-side checkout that verifies product prices and stock, calculates the total, and safely creates the order.
+    </div>
+    <button class="primary" id="checkoutButton" style="margin-top:12px">Checkout setup pending</button>
+    <p class="status" id="checkoutStatus" role="status"></p>
+  </section>
+</main>
+
+<footer>QuickKart · Srikakulam, Andhra Pradesh<br>Demo catalogue — confirm actual product availability before launch.</footer>
+
+<script>
+  // Replace both placeholders with your own Supabase Project URL and publishable/anon key.
+  const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
+  const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE";
+
+  let db = null;
+  let products = [];
+  let cart = {};
+  let activeCategory = "All";
+  let currentUser = null;
+
+  const $ = (id) => document.getElementById(id);
+  const categoryEmoji = {
+    Fruits: "🍎", Vegetables: "🥦", Dairy: "🥛",
+    Bakery: "🍞", Staples: "🌾", Snacks: "🍪",
+    Beverages: "🥤"
+  };
+
+  function money(value) {
+    return "₹" + Number(value).toFixed(2);
+  }
+
+  async function start() {
+    if (!window.supabase ||
+        SUPABASE_URL.includes("PASTE_") ||
+        SUPABASE_KEY.includes("PASTE_")) {
+      $("productStatus").textContent =
+        "Add your Supabase URL and publishable/anon key in index.html, then reload.";
+      return;
+    }
+
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    await loadProducts();
+
+    const { data } = await db.auth.getSession();
+    currentUser = data.session?.user || null;
+    updateAuth();
+
+    db.auth.onAuthStateChange((_event, session) => {
+      currentUser = session?.user || null;
+      updateAuth();
+    });
+  }
+
+  async function loadProducts() {
+    $("productStatus").textContent = "Loading products…";
+    const { data, error } = await db
+      .from("products")
+      .select("id,name,category,description,price,stock,is_available")
+      .eq("is_available", true)
+      .order("name");
+
+    if (error) {
+      $("productStatus").textContent =
+        "Could not load products: " + error.message;
+      return;
+    }
+
+    products = data || [];
+    $("productStatus").textContent =
+      products.length ? products.length + " products available in the demo catalogue."
+      : "No products found. Add products in Supabase first.";
+    renderProducts();
+  }
+
+  function renderProducts() {
+    const term = $("search").value.trim().toLowerCase();
+    const filtered = products.filter(p =>
+      (activeCategory === "All" || p.category === activeCategory) &&
+      (p.name.toLowerCase().includes(term) ||
+       (p.description || "").toLowerCase().includes(term))
+    );
+
+    $("products").innerHTML = filtered.map(p => `
+      <article class="product">
+        <div class="product-art">${categoryEmoji[p.category] || "🛍️"}</div>
+        <h3>${escapeHTML(p.name)}</h3>
+        <p>${escapeHTML(p.description || p.category)}</p>
+        <div class="price-row">
+          <span class="price">${money(p.price)}</span>
+          <button class="add" data-add="${p.id}" ${p.stock < 1 ? "disabled" : ""}>
+            ${p.stock < 1 ? "Out of stock" : "ADD +"}
+          </button>
+        </div>
+      </article>
+    `).join("");
+
+    $("products").querySelectorAll("[data-add]").forEach(button => {
+      button.addEventListener("click", () => addToCart(button.dataset.add));
+    });
+  }
+
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;",
+      '"': "&quot;", "'": "&#39;"
+    }[ch]));
+  }
+
+  function addToCart(id) {
+    const p = products.find(item => String(item.id) === String(id));
+    if (!p) return;
+    const currentQty = cart[id] || 0;
+    if (currentQty >= p.stock) {
+      alert("Only " + p.stock + " available in the demo stock.");
+      return;
+    }
+    cart[id] = currentQty + 1;
+    renderCart();
+  }
+
+  function changeQty(id, amount) {
+    const p = products.find(item => String(item.id) === String(id));
+    if (!p) return;
+    const next = (cart[id] || 0) + amount;
+    if (next <= 0) delete cart[id];
+    else if (next <= p.stock) cart[id] = next;
+    else alert("Only " + p.stock + " available in the demo stock.");
+    renderCart();
+  }
+
+  function renderCart() {
+    const entries = Object.entries(cart)
+      .map(([id, qty]) => ({ p: products.find(p => String(p.id) === String(id)), qty }))
+      .filter(item => item.p);
+
+    const count = entries.reduce((sum, item) => sum + item.qty, 0);
+    const total = entries.reduce((sum, item) => sum + Number(item.p.price) * item.qty, 0);
+    $("cartCount").textContent = count;
+    $("cartTotal").textContent = money(total);
+
+    $("cartItems").innerHTML = entries.length ? entries.map(({p, qty}) => `
+      <div class="cart-line">
+        <div><strong>${escapeHTML(p.name)}</strong><br><span class="muted">${money(p.price)} each</span></div>
+        <div class="cart-controls">
+          <button data-minus="${p.id}" aria-label="Remove one">−</button>
+          <span>${qty}</span>
+          <button data-plus="${p.id}" aria-label="Add one">+</button>
+        </div>
+      </div>
+    `).join("") : '<p class="muted">Your cart is empty. Add a product to get started.</p>';
+
+    $("cartItems").querySelectorAll("[data-minus]").forEach(b =>
+      b.addEventListener("click", () => changeQty(b.dataset.minus, -1)));
+    $("cartItems").querySelectorAll("[data-plus]").forEach(b =>
+      b.addEventListener("click", () => changeQty(b.dataset.plus, 1)));
+  }
+
+  function updateAuth() {
+    $("authStatus").textContent = currentUser
+      ? "Signed in as " + currentUser.email
+      : "Not signed in.";
+    $("signIn").hidden = !!currentUser;
+    $("signUp").hidden = !!currentUser;
+    $("signOut").hidden = !currentUser;
+  }
+
+  $("search").addEventListener("input", renderProducts);
+
+  $("categories").querySelectorAll("[data-category]").forEach(button => {
+    button.addEventListener("click", () => {
+      activeCategory = button.dataset.category;
+      $("categories").querySelectorAll(".category").forEach(b =>
+        b.classList.toggle("active", b === button));
+      renderProducts();
+    });
+  });
+
+  $("signUp").addEventListener("click", async () => {
+    if (!db) return alert("Add your Supabase credentials first.");
+    const email = $("email").value.trim();
+    const password = $("password").value;
+    if (!email || password.length < 6) {
+      $("authStatus").textContent = "Enter a valid email and password of at least 6 characters.";
+      return;
+    }
+    const { error } = await db.auth.signUp({ email, password });
+    $("authStatus").textContent = error
+      ? error.message
+      : "Sign-up submitted. Check your email if confirmation is enabled in Supabase.";
+  });
+
+  $("signIn").addEventListener("click", async () => {
+    if (!db) return alert("Add your Supabase credentials first.");
+    const { error } = await db.auth.signInWithPassword({
+      email: $("email").value.trim(),
+      password: $("password").value
+    });
+    $("authStatus").textContent = error ? error.message : "Signed in successfully.";
+  });
+
+  $("signOut").addEventListener("click", async () => {
+    const { error } = await db.auth.signOut();
+    $("authStatus").textContent = error ? error.message : "Signed out.";
+  });
+
+  $("checkoutButton").addEventListener("click", () => {
+    if (!Object.keys(cart).length) {
+      $("checkoutStatus").textContent = "Add products to your cart first.";
+    } else if (!currentUser) {
+      $("checkoutStatus").textContent = "Please create an account or sign in first.";
+      $("accountPanel").scrollIntoView({behavior: "smooth"});
+    } else {
+      $("checkoutStatus").textContent =
+        "Your cart is ready. Secure checkout must be configured before orders can be accepted.";
+    }
+  });
+
+  start();
+</script>
+</body>
+</html>
